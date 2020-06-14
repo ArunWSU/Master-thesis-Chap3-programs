@@ -14,30 +14,59 @@ import seaborn as sns
 # Variables to set phase(0-A,1-B,2-C)
 # Visualization and saving figure to 1
 phase=0
+visualize_fig=1
 save_fig=0
 
 # Figure path to save 
-figure_path='C:\Test system results'
+#figure_path='C:\Test system results'
+figure_path=(r'C:\Users\insti\OneDrive - Washington State University (email.wsu.edu)\Programs\MATLAB programs\PCA research project\PCA plots and results\Applying PCA\GRID_APPS_D')
 fig_extension='.png'
 # Minimum dpi 300 for conference images, increases size of image
 fig_dpi=300
 
 # Input file
-model_name='Bus_8500_randomvolt'
+model_name='IEEE123PV_Bus_V_GRIDAPPSD_June_8' 
+#model_name='IEEE123PV_Bus_V_GRIDAPPSD_June_8','EPRI_ckt24prim_randomvolt', 'Bus_8500_randomvolt' 
 excel_file_path='C:\PCAdatasets'
-file_name=model_name+'.xlsx'
+file_name=model_name
 
 file=os.path.join(excel_file_path,file_name)
-volt_phase_pca_inp=pd.read_excel(file,phase)
+volt_phase_pca_inp=pd.read_excel((file+'.xlsx'),phase)
 bus_names=list(volt_phase_pca_inp.columns)
-noise=np.random.normal(0,0.01,size=(volt_phase_pca_inp.shape[0],volt_phase_pca_inp.shape[1]))
+noise=np.random.normal(0,0.0,size=(volt_phase_pca_inp.shape[0],volt_phase_pca_inp.shape[1]))
 volt_phase_pca_inp=volt_phase_pca_inp+noise
-#%% Check for maximum column is within tolerance or 
-i=10
+#%% Matrix visualization
+# Function to visualize line plots
+def gen_line_plot(x,y,label_x,label_y,visualize_fig,save_fig,fig_name,file_name,file_path):
+    if(visualize_fig):
+        plt.figure()
+        plt.plot(x,y,linewidth=1, marker='o',markersize=3)
+        plt.xlabel(label_x)
+        plt.ylabel(label_y)
+        plt.tight_layout()
+        plt.show()
+        if(save_fig==1):
+            plt.savefig(os.path.join(file_path,fig_name+file_name+'.png'))
+            # IEEE Paper submission
+            # plt.savefig(os.path.join(file_path,fig_name+file_name+'.eps'),format='eps',dpi=600)
+
+idx=volt_phase_pca_inp.columns.values
+#data=volt_phase_pca_inp.loc[:,idx[0:100]]
+data=volt_phase_pca_inp
+
+# Row and column visualizations of observation matrix
+x=np.arange(0,data.shape[1])
+gen_line_plot(x,data.T,'Different nodes of the system (Line - profile for different time steps)','Voltage (pu)',visualize_fig,save_fig,'Voltage visualization 2',file_name,figure_path)
+
+x=np.arange(0,data.shape[0])
+gen_line_plot(x,data,'No of time steps (Line-Different nodes)','Voltage (pu)',visualize_fig,save_fig,'Voltage visualization 1',file_name,figure_path)
+save_fig=0
+#%% Determine No of principal components 'n'
+i=7
 PCA_full_check=PCA(n_components=i)
 subspace_full_check=PCA_full_check.fit_transform(volt_phase_pca_inp)
 
-# Determine No of principal components 'n' perecentage of information it holds
+# Find the perecentage of information it holds
 for n in range(1,i):
     variance_captured=PCA_full_check.explained_variance_ratio_[0:n].sum()*100
     if(variance_captured > 98):
@@ -120,10 +149,11 @@ reconstructed_diff2=Feeder1_test2-reconstructed_v2
 Feeder1_test3=volt_phase_pca_inp[test_start:].copy()
 #noise2=np.random.normal(0,0.03,size=(Feeder1_test3.shape[0],Feeder1_test3.shape[1]))
 #Feeder1_test3=Feeder1_test3+noise2
+#rand_val=[0.9,0.9,0.9]
+#buses_bad_data=[bus_names[-5],bus_names[-15],bus_names[-25]]
 rand_val=random.sample(list(volt_bad_meas),3)
-rand_val=[0.9,0.9,0.9]
 buses_bad_data=random.sample(bus_names,3)
-buses_bad_data=[bus_names[-5],bus_names[-15],bus_names[-25]]
+buses_bad_data=['64.1','86.1','94.1']
 Feeder1_test3[buses_bad_data[0]].loc[end_index+1]=rand_val[0]
 Feeder1_test3[buses_bad_data[1]].loc[end_index+1]=rand_val[1]
 Feeder1_test3[buses_bad_data[2]].loc[end_index+1]=rand_val[2]
@@ -133,7 +163,7 @@ reconstructed_v3=PCA_train.inverse_transform(subspace_v3)
 reconstructed_diff3=Feeder1_test3-reconstructed_v3
 reconstructed_actual_values=Feeder1_test2.loc[end_index+1]-reconstructed_diff3.loc[end_index+1]
 #%% Check for maximum column is within tolerance 
-i=10
+i=7
 PCA_single_anomaly=PCA(n_components=i)
 subspace_single_anomaly=PCA_single_anomaly.fit_transform(Feeder1_test2)
 
@@ -223,6 +253,7 @@ if(visualize_fig):
 visualize_fig=1
 #cols=reconstructed_diff2.columns.values[0:100]
 cols=reconstructed_diff2.columns.values[-100:]
+save_fig=1
 color_map="Accent"
 if(visualize_fig):
     # use case 1   
@@ -300,3 +331,9 @@ if(diff_degree):
         plt.show()
         if(save_fig):
             plt.savefig(os.path.join(figure_path,'Degree of Badness'+ model_name+'.png'),dpi=fig_dpi)
+            
+#%% Checking the residual sign
+estimates_test3_df=pd.DataFrame(data=reconstructed_v3,columns=Feeder1_test3.columns.values)            
+input_faulty_meas=Feeder1_test3[buses_bad_data]
+estimates_faulty_meas=estimates_test3_df[buses_bad_data]
+residuals_faulty_meas=reconstructed_diff3[buses_bad_data]
